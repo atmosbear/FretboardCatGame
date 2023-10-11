@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<head>
+  <style>
+    .fret {
+      box-sizing: border-box;
+      border: 1px solid gray;
+      background-color: #fff;
+      padding: 2px;
+      color: #000;
+      border-radius: 10px;
+      margin: 2px;
+      width: 40px;
+      height: 40px;
+    }
+
+    #highlighted {
+      background-color: #ff0;
+    }
+
+    #fretboard {
+      background-color: #8b4513;
+      justify-content: center;
+      flex-direction: column;
+      box-sizing: border-box;
+      align-items: center;
+      height: fit-content;
+      border-radius: 20px;
+      width: fit-content;
+      display: flex;
+      padding: 20px;
+    }
+
+    .string {
+      justify-content: space-between;
+      display: flex;
+    }
+
+    body {
+      background-color: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin: 10px;
+    }
+
+    #score,
+    #mode,
+    #target {
+      margin: 0;
+    }
+
+    .found {
+      background-color: #0f0;
+    }
+
+    .wrong {
+      background-color: #f00;
+    }
+
+    .answerButton {
+      box-sizing: border-box;
+      border: 1px solid gray;
+      background-color: #fff;
+      padding: 2px;
+      color: #000;
+      border-radius: 10px;
+      margin: 2px;
+      width: 40px;
+      height: 40px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="fretboard"> </div>
+  <div id="mode">Mode: Identify</div>
+  <div id="target"></div>
+  <div id="leftToFind"></div>
+  <div id="score">Score: 0</div>
+  <button id="switchMode">Switch mode</button>
+  <script defer>
+    const noteNames = ["E", "F", "F#", "G", "G#", "A", "A#", "B", "C", "C#", "D", "D#"];
+    let targetNote = ""; // new target note variable for 'find' mode
+    const $ = (selector) => document.querySelector(selector);
+    const fretboard = document.querySelector("#fretboard");
+    const stringNames = ["E", "B", "G", "D", "A", "E"];
+    let mode = "identify"; // new mode variable
+    let lastHighlightedNote = "";
+    let highlightedNote = "";
+    const numFrets = 5;
+    let score = 0;
+
+    // mode switcher
+    document.querySelector("#switchMode").addEventListener("click", () => {
+      // undo all highlighting:
+      document.querySelectorAll('.fret').forEach(fret => { fret.classList.remove('found'); fret.classList.remove('wrong'); fret.id = '' });
+      const currentMode = $('#mode');
+      mode = mode === "identify" ? "find" : "identify";
+      currentMode.innerHTML = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+      if (mode === "find") {
+        targetNote = noteNames[Math.floor(Math.random() * noteNames.length)];
+        document.querySelector("#target").innerHTML = `Find: ${targetNote}`;
+        currentNoteInstances = document.querySelectorAll(`[data-note="${targetNote}"]`).length;
+        updateLeftToFind();
+      } else {
+        document.querySelector("#target").innerHTML = "";
+        document.querySelector("#leftToFind").innerHTML = "";
+        highlightRandomNote();
+      }
+    });
+
+    let currentNoteInstances = 0; // New variable to track instances of the current note.
+
+    const updateLeftToFind = () => {
+      $('#leftToFind').innerHTML = "Left to find: " + currentNoteInstances;
+    };
+
+
+    const highlightRandomNote = () => {
+      // Remove highlight from the previously highlighted note
+      const previousNotes = document.querySelectorAll(`[data-note="${highlightedNote}"]`);
+      previousNotes.forEach(note => note.id = '');
+
+      // Generate a new highlighted note different from the last one
+      let newNote;
+      do {
+        newNote = noteNames[Math.floor(Math.random() * noteNames.length)];
+      } while (newNote === lastHighlightedNote);
+
+      highlightedNote = newNote;
+      lastHighlightedNote = newNote;
+
+      // Apply highlight to the new note
+      newNote = document.querySelector(`[data-note="${highlightedNote}"]`);
+      newNote.id = "highlighted";
+
+      if (mode === "find") {
+        // Calculate the possible notes for each fret on all strings for the given number of frets
+        const possibleNotes = [];
+        for (let i = 0; i < stringNames.length; i++) {
+          for (let j = 0; j < numFrets; j++) {
+            let noteIndex = (j + noteNames.indexOf(stringNames[i])) % noteNames.length;
+            possibleNotes.push(noteNames[noteIndex]);
+          }
+        }
+
+        // Count the number of occurrences of the selected note in these possible notes
+        currentNoteInstances = possibleNotes.filter(note => note === highlightedNote).length;
+
+        updateLeftToFind();
+      }
+    };
+    const correct = (fret) => {
+      if (score % 10 === 0) {
+        const cat = fetch("https://api.thecatapi.com/v1/images/search")
+          .then(response => response.json())
+          .then(data => {
+            const url = data[0].url;
+            document.body.style.backgroundImage = `url(${url})`;
+            document.body.style.backgroundRepeat = "no-repeat";
+            document.body.style.backgroundSize = "cover";
+            document.body.style.backgroundPosition = "center";
+          })
+      }
+      if (mode === "identify") {
+        fret.classList.add('correct');
+        setTimeout(() => {
+          // Capture the current fret in a closure
+          const currentFret = fret;
+          currentFret.classList.remove('found');
+        }, 200);
+        highlightRandomNote();
+        score++;
+        $('#score').innerHTML = "Score: " + score;
+      } else { // 'find' mode
+        currentNoteInstances--;
+        updateLeftToFind();
+        fret.classList.add('found');
+        if (currentNoteInstances === 0) {
+          // Remove 'found' class from all frets
+          document.querySelectorAll('.fret').forEach(fret => fret.classList.remove('found'));
+
+          score++;
+          $('#score').innerHTML = "Score: " + score;
+          targetNote = noteNames[Math.floor(Math.random() * noteNames.length)];
+          document.querySelector("#target").innerHTML = `Find: ${targetNote}`;
+          currentNoteInstances = document.querySelectorAll(`[data-note="${targetNote}"]`).length;
+          updateLeftToFind();
+        }
+      }
+    };
+
+    const wrong = (fret) => {
+      if (score > 0)
+        score--;
+      $('#score').innerHTML = "Score: " + score;
+      if (mode === "find") {
+        fret.classList.add('wrong');
+        setTimeout(() => fret.classList.remove('wrong'), 500); // Removes the 'wrong' class after 500 ms.
+      }
+      if (mode === "identify") {
+        // flash the fretboard red
+        const fretboard = document.querySelector("#fretboard");
+        fretboard.style.backgroundColor = "red";
+        setTimeout(() => fretboard.style.backgroundColor = "#8b4513", 500);
+      }
+    };
+    const checkAnswer = (e) => {
+      if (e.target.dataset.note.includes("-answer-button") && mode === "identify") {
+        if (e.target.dataset.note.replace("-answer-button", "") === highlightedNote) {
+          e.target.classList.add('found');
+          correct(e.target);
+        } else {
+          wrong(e.target);
+        }
+      }
+      else if ((mode === "identify" && e.target.dataset.note === highlightedNote) ||
+        (mode === "find" && e.target.dataset.note === targetNote)) {
+        e.target.classList.add('found');
+        correct(e.target);
+      } else {
+        wrong(e.target);
+      }
+    };
+    const make = (tag) => document.createElement(tag);
+    const answerBar = make("div");
+    const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    for (let i = 0; i < notes.length; i++) {
+      const note = make("button");
+      note.innerHTML = notes[i];
+      note.setAttribute("data-note", notes[i] + "-answer-button");
+      note.setAttribute("class", "answerButton");
+      answerBar.appendChild(note);
+      note.addEventListener("click", checkAnswer);
+    }
+    fretboard.appendChild(answerBar);
+    document.addEventListener('keydown', e => {
+      if (e.key !== "Shift" && e.key !== "Control" && e.key !== "Alt" && e.key !== "Meta") {
+        let note = e.key.toUpperCase();
+        if (e.shiftKey) note += "#";
+
+        // Check against the highlighted note in 'identify' mode
+        if (mode === "identify" && note === highlightedNote) {
+          const element = document.querySelector('#highlighted');
+          element.classList.add('found');
+          correct(element);
+        }
+
+        // If it's a wrong guess
+        else if (mode === "identify") {
+          const element = document.querySelector('#highlighted');
+          wrong(element);
+        }
+      }
+    });
+
+
+    for (let i = 0; i < stringNames.length; i++) {
+      const string = make("div");
+      string.setAttribute("class", "string");
+      fretboard.appendChild(string);
+
+      for (let j = 0; j < numFrets; j++) {
+        const fret = make("button");
+        let noteIndex = (j + noteNames.indexOf(stringNames[i])) % noteNames.length;
+        const noteName = noteNames[noteIndex];
+        // fret.innerHTML = noteName;
+        fret.dataset.note = noteName;
+        fret.setAttribute("class", "fret");
+        fret.addEventListener("click", checkAnswer);
+        string.appendChild(fret);
+      }
+    }
+
+    highlightRandomNote();
+  </script>
+</body>
+
+</html>
